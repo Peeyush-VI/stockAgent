@@ -571,12 +571,16 @@
     btn.disabled = true;
     icon.innerHTML = `<span class="refresh-icon">⟳</span>`;
 
-    await Promise.allSettled(
-      bookmarks.map(async b => {
-        const d = await fetchLivePrice(b.sym);
-        if (d) liveData[b.sym] = d;
-      })
-    );
+    const batchSize = 5;
+    for (let i = 0; i < bookmarks.length; i += batchSize) {
+      const batch = bookmarks.slice(i, i + batchSize);
+      await Promise.allSettled(
+        batch.map(async b => {
+          const d = await fetchLivePrice(b.sym);
+          if (d) liveData[b.sym] = d;
+        })
+      );
+    }
 
     btn.disabled = false;
     icon.innerHTML = "🔄";
@@ -840,12 +844,16 @@
     badge.textContent = bookmarks.length;
     badge.style.display = "inline";
 
-    await Promise.allSettled(
-      bookmarks.map(async b => {
-        const d = await fetchLivePrice(b.sym);
-        if (d) liveData[b.sym] = d;
-      })
-    );
+    const batchSize = 5;
+    for (let i = 0; i < bookmarks.length; i += batchSize) {
+      const batch = bookmarks.slice(i, i + batchSize);
+      await Promise.allSettled(
+        batch.map(async b => {
+          const d = await fetchLivePrice(b.sym);
+          if (d) liveData[b.sym] = d;
+        })
+      );
+    }
 
     renderGrid();
   });
