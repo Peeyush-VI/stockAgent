@@ -94,3 +94,14 @@ if (chatId && chatId !== 'your_chat_id_here') {
   console.log('Message your bot on Telegram with "/start" to get your Chat ID.');
   console.log('----------------\n');
 }
+
+// Dummy web server for Render's health checks
+const http = require('http');
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.write('Bot is running!');
+  res.end();
+}).listen(PORT, () => {
+  console.log(`Web server listening on port ${PORT}`);
+});
