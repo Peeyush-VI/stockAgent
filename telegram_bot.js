@@ -109,14 +109,19 @@ async function fetchNiftyAndSend(targetChatId) {
     const difference = openPrice - previousClose;
     const roundedDiff = Math.round(difference * 100) / 100;
 
+    const changeFromOpen = currentPrice - openPrice;
+    const roundedChangeFromOpen = Math.round(changeFromOpen * 100) / 100;
+    const pctChangeFromOpen = openPrice > 0 ? Math.round((changeFromOpen / openPrice) * 10000) / 100 : 0;
+    const openChangeStr = `\n\n📍 *Current Price*: **${currentPrice}**\nChange from Open: **${roundedChangeFromOpen > 0 ? '+' : ''}${roundedChangeFromOpen} points** (${pctChangeFromOpen > 0 ? '+' : ''}${pctChangeFromOpen}%)`;
+
     let message = '';
     
     if (difference > 100) {
-      message = `📈 *NIFTY GAP UP!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Up of **+${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).`;
+      message = `📈 *NIFTY GAP UP!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Up of **+${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).${openChangeStr}`;
     } else if (difference < -100) {
-      message = `📉 *NIFTY GAP DOWN!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Down of **${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).`;
+      message = `📉 *NIFTY GAP DOWN!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Down of **${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).${openChangeStr}`;
     } else {
-      message = `📊 *NIFTY OPENED FLAT*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}). The difference from the previous close of **${previousClose}** (on ${prevCloseDateStr}) is **${roundedDiff > 0 ? '+' : ''}${roundedDiff} points** (No significant gap).`;
+      message = `📊 *NIFTY OPENED FLAT*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}). The difference from the previous close of **${previousClose}** (on ${prevCloseDateStr}) is **${roundedDiff > 0 ? '+' : ''}${roundedDiff} points** (No significant gap).${openChangeStr}`;
     }
 
     bot.sendMessage(targetChatId, message, { parse_mode: 'Markdown' }).then(() => {
