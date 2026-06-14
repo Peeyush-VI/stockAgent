@@ -32,6 +32,17 @@ bot.onText(/\/test/, (msg) => {
   console.log(`Sent test message to chat ID: ${currentChatId}`);
 });
 
+// Helper to format dates in IST timezone
+function formatISTDate(date) {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
 // Function to fetch NIFTY data and send alert
 async function fetchNiftyAndSend(targetChatId) {
   try {
@@ -47,17 +58,65 @@ async function fetchNiftyAndSend(targetChatId) {
         throw new Error('Incomplete market data received from Yahoo Finance.');
     }
 
+    // Determine the dates for today's open and previous close
+    let todayDateStr = '';
+    let prevCloseDateStr = '';
+    
+    try {
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      const chartData = await yahooFinance.chart('^NSEI', { period1: tenDaysAgo, interval: '1d' });
+      if (chartData && chartData.quotes && chartData.quotes.length >= 2) {
+        const quotes = chartData.quotes;
+        const lastBar = quotes[quotes.length - 1];
+        const prevBar = quotes[quotes.length - 2];
+        
+        const lastBarDate = new Date(lastBar.date);
+        const quoteTime = result.regularMarketTime ? new Date(result.regularMarketTime) : new Date();
+        
+        // If the last bar in the chart represents today's date
+        if (lastBarDate.toDateString() === quoteTime.toDateString()) {
+          todayDateStr = formatISTDate(lastBar.date);
+          prevCloseDateStr = formatISTDate(prevBar.date);
+        } else {
+          // If chart is not updated yet, lastBar is actually the previous close day
+          todayDateStr = formatISTDate(quoteTime);
+          prevCloseDateStr = formatISTDate(lastBar.date);
+        }
+      }
+    } catch (chartError) {
+      console.error('Error fetching chart for dates, falling back to heuristics:', chartError);
+    }
+    
+    // Heuristic fallbacks if chart query failed
+    if (!todayDateStr) {
+      const quoteTime = result.regularMarketTime ? new Date(result.regularMarketTime) : new Date();
+      todayDateStr = formatISTDate(quoteTime);
+    }
+    if (!prevCloseDateStr) {
+      const quoteTime = result.regularMarketTime ? new Date(result.regularMarketTime) : new Date();
+      const tempDate = new Date(quoteTime);
+      const day = tempDate.getDay();
+      if (day === 1) { // Monday
+        tempDate.setDate(tempDate.getDate() - 3);
+      } else if (day === 0) { // Sunday
+        tempDate.setDate(tempDate.getDate() - 2);
+      } else {
+        tempDate.setDate(tempDate.getDate() - 1);
+      }
+      prevCloseDateStr = formatISTDate(tempDate);
+    }
+
     const difference = openPrice - previousClose;
     const roundedDiff = Math.round(difference * 100) / 100;
 
     let message = '';
     
     if (difference > 100) {
-      message = `📈 *NIFTY GAP UP!*\n\nNIFTY opened at **${openPrice}**, which is a Gap Up of **+${roundedDiff} points** from yesterday's close (${previousClose}).`;
+      message = `📈 *NIFTY GAP UP!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Up of **+${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).`;
     } else if (difference < -100) {
-      message = `📉 *NIFTY GAP DOWN!*\n\nNIFTY opened at **${openPrice}**, which is a Gap Down of **${roundedDiff} points** from yesterday's close (${previousClose}).`;
+      message = `📉 *NIFTY GAP DOWN!*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}), which is a Gap Down of **${roundedDiff} points** from the previous close of **${previousClose}** (on ${prevCloseDateStr}).`;
     } else {
-      message = `📊 *NIFTY OPENED FLAT*\n\nNIFTY opened at **${openPrice}**. The difference from yesterday's close is **${roundedDiff > 0 ? '+' : ''}${roundedDiff} points** (No significant gap).`;
+      message = `📊 *NIFTY OPENED FLAT*\n\nNIFTY opened at **${openPrice}** (on ${todayDateStr}). The difference from the previous close of **${previousClose}** (on ${prevCloseDateStr}) is **${roundedDiff > 0 ? '+' : ''}${roundedDiff} points** (No significant gap).`;
     }
 
     bot.sendMessage(targetChatId, message, { parse_mode: 'Markdown' }).then(() => {
